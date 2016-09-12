@@ -1,19 +1,28 @@
 ---
 title: "Análisis de la tasa de cambio en Colombia"
 author: "Norman Simón Rodríguez"
-date: "12 de septiembre de 2016"
+date: "Versión 12 de septiembre de 2016"
 output: word_document
 ---
 
-Cargando los paquetes que requerimos:
-
-```{r}
-library(ggplot2)
-
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 ```
 
 
-Vamos a importar los datos de la tasa de interés de los Fed Funds de la Reserva Federal de Estados Unidos. Los datos fueron directamente descargados de la [página de la Reserva Federal](https://www.federalreserve.gov/releases/h15/data.htm#fn1).
+
+```{r}
+# Cargando los paquetes que requerimos.
+library(ggplot2)
+library(reshape2)
+
+```
+
+# Estadística descriptiva
+
+## Tasa de interés de la Reserva Federal de Estados Unidos.
+
+Vamos a analizar los datos de la tasa de interés de los Fed Funds de la Reserva Federal de Estados Unidos. Los datos fueron directamente descargados de la [página de la Reserva Federal](https://www.federalreserve.gov/releases/h15/data.htm#fn1). Datos mensuales (promedios).
 
 ```{r}
 
@@ -21,10 +30,119 @@ fed <- read.csv("./data/fedrate.csv")
 fed$day <- as.Date(fed$day)
 
 ```
-Si graficamos la tasa de interés de la Fed contra el tiempo (datos desde el primero de agosto de 1954), podemos ver una marcada tendencia a las altas tasas alrededor de 1980, y unas tasas notablemente bajas desde finales de la década del 2000 (correspondientes al periodo del QE o relajamiento cuantitativo):
+Si graficamos la tasa de interés de la Fed contra el tiempo (datos diarios desde agosto de 1954), podemos ver una marcada tendencia a las altas tasas alrededor de 1980, y unas tasas notablemente bajas desde finales de la década del 2000 (correspondientes al periodo del QE o relajamiento cuantitativo):
 
 ```{r}
-ggplot(fed, aes(x=day, y=Federal.funds.eff.rate)) + labs(x="Datos de la Reserva Federal", y="%") + theme_bw() + geom_line() + ggtitle("Tasa de interés de los fondos federales \nde Estados Unidos") + scale_x_date(date_breaks = "10 year",date_labels = "%Y")
+ggplot(fed, aes(x=day, y=fedfundrate)) + labs(x="Datos de la Reserva Federal", y="%") + theme_bw() + geom_line() + ggtitle("Tasa de interés de los fondos federales \nde Estados Unidos") + scale_x_date(date_breaks = "10 year",date_labels = "%Y")
 ```
 
-Ahora vamos a analizar la tasa de cambio de pesos colombianos por dólar. Los datos son del [Banco de la República]().
+Haciendo zoom en el periodo que viene desde la década de 1990 vemos más claramente el periodo del QE:
+```{r}
+ggplot(fed, aes(x=day, y=fedfundrate)) + labs(x="Datos de la Reserva Federal", y="%") + theme_bw() + geom_line() + ggtitle("Tasa de interés de los fondos federales \nde Estados Unidos") + scale_x_date(date_breaks = "4 year",date_labels = "%Y",limits = as.Date(c("1994-01-01", NA))) + scale_y_continuous(limits=c(0,8))
+```
+
+## Tasa de cambio
+
+Ahora vamos a analizar la tasa de cambio de pesos colombianos por dólar. Los datos son del [aplicativo SeranKUA del Banco de la República](http://www.banrep.gov.co/es/trm) y son diarios.
+
+```{r}
+exchangerate <- read.csv("./data/exchangerate.csv",dec=",")
+exchangerate$day <- as.Date(exchangerate$day)
+#exchangerate$month <- as.Date(paste(exchangerate$month,"-15",sep=""))
+
+```
+
+Desde mediados de los 80 ha habido un incremento sostenido en la tasa de cambio, con picos hacia fines de los 90 y en la actualidad (hubo un descenso sostenido en la tasa de cambio en la década de los 2000). Estos cambios abruptos y persistentes en el tiempo son potencialmente interpretables como transiciones de fase:
+```{r}
+ggplot(exchangerate, aes(x=day, y=trm)) + labs(x="Datos del BanRep", y="Pesos por dólar") + theme_bw() + geom_line() + ggtitle("Tasa de cambio COP/USD") + scale_x_date(date_breaks = "5 year",date_labels = "%Y")
+```
+
+La tasa de cambio en Colombia fue fija hasta 1991 (las variaciones de la tasa antes del 91 responden a devaluaciones intencionales para mantener los términos de intercambio, ya que la inflación colombiana era mayor que la estadounidense).
+
+## La tasa de interés en Colombia
+
+La tasa de cambio también depende, en teoría, de la tasa de interés interna de Colombia, para la cual también tomamos información. Los datos fueron tomados del [aplicativo SeranKUA del Banco de la República](http://www.banrep.gov.co/es/tasa-intervencion-politica-monetaria) y corresponden a la tasa de intervención del Banco de la República.
+
+```{r}
+banreprate <- read.csv("./data/banreprate.csv", dec=",")
+banreprate$date.modif <- as.Date(banreprate$date.modif)
+
+```
+Vemos que desde el 99 la tasa de intervención del Banco de la República se ha mantenido en un nivel bajo, posiblemente gracias al esquema de tasa de cambio flotante que se adoptó plenamente en ese año.
+
+```{r}
+ggplot(banreprate, aes(x=date.modif, y=banreprate*100)) + labs(x="Datos del BanRep", y="Tasa de intervención") + theme_bw() + geom_step() + ggtitle("Tasa de intervención \ndel Banco de la República") + scale_x_date(date_breaks = "2 year",date_labels = "%Y")
+
+# Si quisiéramos generar los datos diarios, usaríamos la función stepfun().
+# Carguemos los datos diarios proveídos por el Banco de la República desde 1999.
+banrepday <- read.csv("./data/banreprateday.csv", dec=",")
+banrepday$day <- as.Date(banrepday$day)
+banrepday$banrepday <- banrepday$banrepday*100
+```
+
+# Cruces de datos
+
+Haremos un cruce de datos sencillo para las series de tiempo desde inicios de 1999.
+
+```{r}
+# Unificando los datos diarios.
+datos <- merge(x=banrepday, y=exchangerate, by="day",all.y = TRUE)
+datos <- merge(x=datos, y=fed, by="day", all.y = TRUE)
+
+# Tomamos sólo los datos desde 1999.
+datos99 <- datos[which(datos$day=="1999-01-01"):which.max(datos$day),]
+
+```
+
+Si cruzamos la tasa de interés de la FED con los datos de la tasa de cambio no encontramos relación aparente:
+
+```{r}
+plot(datos99$trm ~ datos99$fedfundrate, type="p", pch=19
+     ,main="Tasa Fed vs. TRM"
+     ,xlab="Tasa FedFund (%)"
+     ,ylab="TRM (pesos por dólar)")
+
+```
+
+Haciendo el cruce con la tasa de interés de intervención del Banco de la República la situación es poco esclarecedora:
+
+```{r}
+plot(datos99$trm ~ datos99$banrepday, type="p", pch=19
+     ,main="Tasa BanRep vs. TRM"
+     ,xlab="Tasa BanRep (%)"
+     ,ylab="TRM (pesos por dólar)")
+# No se debe usar dev.off() en Knitr.
+```
+No obstante, si tenemos en cuenta que la política del Banco de la República es reactiva (reacciona a los cambios en la tasa de interés), valdría la pena evaluar estas mismas variables en relación con el tiempo:
+
+```{r}
+par(mar=c(5,4,4,5)+.1)
+plot(x=datos99$day, y=datos99$trm, type="l",ylab="TRM (pesos por dólares)",xlab="",main="Tasa BanRep vs. TRM (serie temporal)")
+par(new=T)
+plot(x=datos99$day, y=datos99$banrepday, type="l", xlab="",ylab="",yaxt="n",xaxt="n", lwd=3,col="red")
+axis(4)
+mtext("Tasa de intervención (%)",side=4,line=3,col="red")
+```
+
+Como se puede observar, hay una aparente relación inversa entre la tasa de interés y la TRM, tal como cabría esperar. De hecho, cuando mayor es la tasa de interés, menor la tasa de cambio, lo que se explica porque cuando la tasa de interés es alta, se reduce la cantidad de dinero en la economía, lo que lleva a que los pesos se encarezcan frente al dólar (es decir, a que cada dólar valga menos pesos).
+
+Al hacer el mismo ejercicio con la tasa de interés de Estados Unidos la relación es también marcada, al menos hasta el 2008. De ahí en adelante la tasa de interés de la FED se mantuvo constante en cero y la tasa de cambio empezó a variar por su cuenta movida por variables macroeconómicas diferentes a la tasa de la Fed:
+
+
+```{r}
+par(mar=c(5,4,4,5)+.1)
+plot(x=datos99$day, y=datos99$trm, type="l",ylab="TRM (pesos por dólares)",xlab="",main="Tasa Fed vs. TRM (serie temporal)")
+par(new=T)
+plot(x=datos99$day, y=datos99$fedfundrate, type="l", xlab="",ylab="",yaxt="n",xaxt="n", lwd=3,col="red")
+axis(4)
+mtext("Tasa Fed (%)",side=4,line=3,col="red")
+```
+
+Como vemos, la tasa de cambio depende fuertemente de las decisiones del banco central de Estados Unidos, y la labor del Banco de la República es más bien reactiva (la tasa del BanRep simplemente le sigue la pista a la tasa de la Reserva Federal y eso se debe a que la inflación en Colombia depende mucho del precio del dólar). En efecto, si la Fed sube sus tasas, hay menos dólares en la economía mundial, lo que hace que la TRM suba. Al subir la TRM, los bienes importados se encarecen, generando inflación. Para reducir la inflación, el Banco de la República de Colombia debe incrementar sus propias tasas de interés y así reducir la cantidad de dinero en la economía. Esta correlación entre las tasas de interés de los dos países es evidente en la siguiente gráfica:
+
+```{r}
+plot(x=datos99$day, y=datos99$fedfundrate, type="l",ylab="%",xlab="",main="Tasa Fed y Tasa Banrep (serie temporal)",ylim=c(0,15))
+lines(x=datos99$day, y=datos99$banrepday, type="l", lwd=3, col="red")
+legend("topright", c("BanRep","Fed"), fill=c("red","black"), border = F, bty = "n")
+```
+
