@@ -1,0 +1,30 @@
+---
+title: "Análisis de la tasa de cambio en Colombia"
+author: "Norman Simón Rodríguez"
+date: "12 de septiembre de 2016"
+output: word_document
+---
+
+Cargando los paquetes que requerimos:
+
+```{r}
+library(ggplot2)
+
+```
+
+
+Vamos a importar los datos de la tasa de interés de los Fed Funds de la Reserva Federal de Estados Unidos. Los datos fueron directamente descargados de la [página de la Reserva Federal](https://www.federalreserve.gov/releases/h15/data.htm#fn1).
+
+```{r}
+
+fed <- read.csv("./data/fedrate.csv")
+fed$day <- as.Date(fed$day)
+
+```
+Si graficamos la tasa de interés de la Fed contra el tiempo (datos desde el primero de agosto de 1954), podemos ver una marcada tendencia a las altas tasas alrededor de 1980, y unas tasas notablemente bajas desde finales de la década del 2000 (correspondientes al periodo del QE o relajamiento cuantitativo):
+
+```{r}
+ggplot(fed, aes(x=day, y=Federal.funds.eff.rate)) + labs(x="Datos de la Reserva Federal", y="%") + theme_bw() + geom_line() + ggtitle("Tasa de interés de los fondos federales \nde Estados Unidos") + scale_x_date(date_breaks = "10 year",date_labels = "%Y")
+```
+
+Ahora vamos a analizar la tasa de cambio de pesos colombianos por dólar. Los datos son del [Banco de la República]().
